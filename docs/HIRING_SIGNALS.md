@@ -49,3 +49,26 @@ node company-funded.mjs --sources india,uae,australia --months 3 --dry-run
 Amounts in `$47 Mn`, `₹50 Cr`, `Rs 100 Cr`, `INR 32 Cr` and `AED 20 million` are read, and headlines that start with a place ("Dubai's WheelsOn raises…", "Bengaluru-based Olyv raises…") give the company name. Investment funds closing a fund are left out. The global sources (`techcrunch`, `prnewswire`, `guardian`, `hn`) still work and can be combined: `--sources india,techcrunch`.
 
 Without `--dry-run` it writes a review list. To track a funded company's jobs, run `node discover-ats.mjs <Company>` and add its board to `portals.yml`.
+
+## Job priority: one ordered list
+
+```bash
+node job-priority.mjs              # top 25
+node job-priority.mjs --limit 60
+node job-priority.mjs --json
+```
+
+Combines everything above into one list of your open jobs:
+
+1. **apply** — already evaluated at 4.0 or above, highest score first.
+2. **evaluate next** — not evaluated yet, ordered by priority points.
+3. **below bar** — evaluated under 4.0.
+
+| Priority points | |
+|---|---|
+| Company hiring signal | 🟢 +3 · 🟡 / ⚪ +2 · no other postings +1 · 🔴 0 |
+| Company raised funding (newest `output/funded-companies-*.json`) | +1 |
+| Posted in the last 14 days | +1 |
+| Each warning (open 90+ days, re-listed) | −1 |
+
+Points only decide which jobs to evaluate first. They say nothing about fit: that comes from the evaluation score. Refresh funding first with `node company-funded.mjs --sources india,uae,australia`.

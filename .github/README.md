@@ -17,7 +17,7 @@ Most job-search tools are built for the US and Europe, with India, the Gulf and 
 - **Local job sources.** Naukri, Instahyre, Cutshort, Foundit, IIMJobs and Hirist alerts today; Bayt, GulfTalent and Seek next.
 - **Local salary and hiring terms.** LPA and crore ranges, CTC vs. in-hand pay, notice period and buyout; AED packages and gratuity; superannuation and visa subclasses.
 - **Your accounts stay safe.** Navijob never logs in to job sites, never scrapes them and never auto-applies. It reads the alert emails you already receive and companies' own public career pages.
-- **Hiring signals.** See which companies are actively hiring in your cities, which postings look like ghost jobs (open 90+ days, re-listed), and which startups in India, the UAE and Australia just raised funding. See [Hiring signals](../docs/HIRING_SIGNALS.md).
+- **Hiring signals.** See which companies are actively hiring in your cities, which postings look like ghost jobs (open 90+ days, re-listed), and which startups in India, the UAE and Australia just raised funding. One command (`node job-priority.mjs`) puts it all in a single ordered list of what to evaluate and apply to next. See [Hiring signals](../docs/HIRING_SIGNALS.md).
 - **Quality over volume.** Every job gets a 1–5 score against your real CV. Below 4, Navijob recommends not applying.
 - **No made-up experience.** Tailored CVs reorder and reword what is in your CV. They never invent skills or numbers.
 
