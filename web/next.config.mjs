@@ -5,6 +5,9 @@ process.env.NEXT_TELEMETRY_DISABLED = "1";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    agentUpgrade: "security",
+  },
   // Disable automatic AGENTS.md generation on next dev which triggers HMR file-watcher reload loops
   agentRules: false,
   // PDF.js resolves its local worker relative to its own package in Node.
