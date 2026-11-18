@@ -200,6 +200,7 @@ It reformulates your CV; it must never fabricate it. A check in code stops a PDF
 | **Follow-ups & Replies** | Follow-up cadence calculator and seeded reminders (`followup-cadence.mjs`, `followup-seed.mjs`); turn them off with `follow_ups.enabled: false` in `config/profile.yml`; employer reply classification into tracker updates ([`reply-watch`](modes/reply-watch.md)) |
 | **Plugin System**        | Opt-in integrations (Gmail, Notion, Apify + a community registry), disabled by default -- see [docs/PLUGINS.md](docs/PLUGINS.md)        |
 | **LinkedIn job alerts**  | Paste a LinkedIn alert email on the dashboard or with `node linkedin-import.mjs`. No Google account. See [docs/LINKEDIN_JOBS.md](docs/LINKEDIN_JOBS.md) |
+| **Naukri job alerts**    | Paste a Naukri alert email with `node naukri-import.mjs`. Salary (LPA / Cr) saved in rupees, plus experience and city. Never logs in to Naukri. See [docs/NAUKRI_JOBS.md](docs/NAUKRI_JOBS.md) |
 
 </details>
 
