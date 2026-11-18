@@ -121,6 +121,58 @@ test('the import plan names the sites and skips jobs already listed', () => {
   assert.match(planIndiaImport('nothing here', '').message, /^No jobs from Naukri, Instahyre/);
 });
 
+// Layout of a real Instahyre job alert (2026-11): every link wrapped in a
+// click tracker that carries the target, %2F-encoded, in its PATH, plus a
+// per-user url_auth_token. Company, id, token and signatures are made up.
+const TOKEN = 'FAKEtokenFAKEtoken%253AFAKEsig';
+const tracked = (target) => `https://click4.instahyre.com/CL0/${encodeURIComponent(target).replace(/%3A/g, ':')}/2/0000000000000000-aaaa-bbbb/SIG000=258`;
+const INSTAHYRE_ALERT = [
+  `[Instahyre](${tracked('https://www.instahyre.com')})`,
+  'Hey Candidate,',
+  'Northwind Systems has just posted a Java Developer job. You look like a good fit for the position.',
+  `[Update your preferences »](${tracked(`https://www.instahyre.com/candidate/onboard/?url_auth_token=${TOKEN}`)})`,
+  '',
+  'Java Developer',
+  'Northwind Systems  ',
+  '\tBangalore',
+  ' ',
+  `[Apply here](${tracked(`https://www.instahyre.com/job-400001-java-developer-at-northwind-systems-bangalore/?url_auth_token=${TOKEN}&utm_source=instahyre&utm_medium=email&utm_campaign=job_alert&referrer=job_post`)})`,
+  ' ',
+  'Northwind Systems provides software services to businesses.',
+  'Hibernate JPA Java Microservices REST SQL Spring Spring Boot',
+  `[Click here if you want to unsubscribe from this notification](${tracked(`https://www.instahyre.com/candidate/settings/?url_auth_token=${TOKEN}&notification_settings=true`)})`,
+  `[LinkedIn](${tracked('https://www.linkedin.com/company/instahyre')})`,
+].join('\n');
+
+test('a real-layout Instahyre alert: path-wrapped tracker, details above "Apply here"', () => {
+  const jobs = indiaJobsFromText(INSTAHYRE_ALERT);
+  assert.deepEqual(jobs, [{
+    site: 'instahyre',
+    id: '400001',
+    url: 'https://www.instahyre.com/job-400001-java-developer-at-northwind-systems-bangalore/',
+  }]);
+  const [offer] = indiaOffers(jobs, INSTAHYRE_ALERT);
+  assert.equal(offer.title, 'Java Developer');
+  assert.equal(offer.company, 'Northwind Systems');
+  assert.equal(offer.location, 'Bangalore');
+});
+
+test('the account login token in an alert link is never saved', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'india-'));
+  try {
+    mkdirSync(join(dir, 'data'), { recursive: true });
+    const r = spawnSync(process.execPath, [CLI], { input: INSTAHYRE_ALERT, env: { ...process.env, CAREER_OPS_ROOT: dir }, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    for (const file of ['pipeline.md', 'scan-history.tsv']) {
+      const text = readFileSync(join(dir, 'data', file), 'utf8');
+      assert.ok(text.includes('job-400001'), `${file} has the job`);
+      assert.ok(!/url_auth_token|FAKEtoken|click4\./.test(text), `${file} has no token or tracker`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('the CLI writes jobs from every site once, and --site limits it', () => {
   const dir = mkdtempSync(join(tmpdir(), 'india-'));
   try {
