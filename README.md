@@ -201,6 +201,7 @@ It reformulates your CV; it must never fabricate it. A check in code stops a PDF
 | **Plugin System**        | Opt-in integrations (Gmail, Notion, Apify + a community registry), disabled by default -- see [docs/PLUGINS.md](docs/PLUGINS.md)        |
 | **LinkedIn job alerts**  | Paste a LinkedIn alert email on the dashboard or with `node linkedin-import.mjs`. No Google account. See [docs/LINKEDIN_JOBS.md](docs/LINKEDIN_JOBS.md) |
 | **Naukri job alerts**    | Paste a Naukri alert email with `node naukri-import.mjs`. Salary (LPA / Cr) saved in rupees, plus experience and city. Never logs in to Naukri. See [docs/NAUKRI_JOBS.md](docs/NAUKRI_JOBS.md) |
+| **Indian job sites**     | Paste alerts or links from Naukri, Instahyre, Cutshort, Foundit, IIMJobs or Hirist with `node india-import.mjs`. Salary in rupees, experience and city. See [docs/INDIA_JOBS.md](docs/INDIA_JOBS.md) |
 
 </details>
 

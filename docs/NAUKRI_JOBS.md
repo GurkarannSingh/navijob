@@ -16,7 +16,7 @@ Or pipe it:
 pbpaste | node naukri-import.mjs
 ```
 
-A plain list of Naukri job links works too.
+A plain list of Naukri job links works too. For Instahyre, Cutshort, Foundit, IIMJobs and Hirist as well, use `node india-import.mjs` (see [INDIA_JOBS.md](INDIA_JOBS.md)).
 
 `--dry-run` prints the count and writes nothing. `--json` prints one object with `added`, `already`, `found`, and `message`.
 
