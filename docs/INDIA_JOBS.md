@@ -13,18 +13,25 @@ Paste a job alert email, or a list of job links, from any of these sites. The jo
 
 CareerOps never logs in to these sites and never opens them: it reads only the text you paste. Search and listing pages (`/jobs/...`, `/search/...`) are not jobs and are skipped.
 
-## Paste from the terminal
+## Save the alert email, then import it
 
-Open the alert email, select all, copy, and run:
+Copying an email out of Gmail or Outlook in the browser usually drops its links, and without links there is nothing to import. Download the email instead:
+
+- **Gmail:** open the alert, click **⋮** (More) → **Download message**. You get a `.eml` file.
+- **Outlook / Apple Mail:** drag the email to a folder, or use **File → Save As**.
+
+Then run:
+
+```bash
+node india-import.mjs --file ~/Downloads/alert.eml
+```
+
+The importer decodes the email (base64 or quoted-printable HTML) and reads it the way a person would: each job's title, company, city, salary and experience next to its **View & apply** link.
+
+A pasted list of job links works too:
 
 ```bash
 pbpaste | node india-import.mjs
-```
-
-Or save it first:
-
-```bash
-node india-import.mjs --file alert.txt
 ```
 
 - `--site foundit` reads only that site. Repeat it for more than one.
@@ -33,11 +40,14 @@ node india-import.mjs --file alert.txt
 
 A job that is already in the pipeline or the tracker is not added again. `node naukri-import.mjs` still works and reads Naukri links only (see [NAUKRI_JOBS.md](NAUKRI_JOBS.md)).
 
+The link in an alert email can carry a login token for your account on that site (Instahyre's `url_auth_token`, for example). It is never saved: each job is stored under its plain job address.
+
 ## What gets saved
 
 | Alert text | Saved as |
 |------------|----------|
 | `12-18 Lacs PA`, `₹ 30-45 LPA` | `1200000-1800000 INR`, `3000000-4500000 INR` |
+| `₹60L - ₹1Cr/year` | `6000000-10000000 INR` |
 | `1-1.5 Cr` | `10000000-15000000 INR` |
 | `Not disclosed` | no salary |
 | `5-8 Yrs`, `3 to 5 years`, `Fresher` | `yrs: 5-8`, `yrs: 3-5`, `yrs: fresher` |
@@ -45,7 +55,9 @@ A job that is already in the pipeline or the tracker is not added again. `node n
 
 The salary is the advertised CTC range, not in-hand pay. The India mode (`language.modes_dir: modes/in`) explains the difference when it evaluates the job.
 
-Two alert layouts are read: details above a **View job** / **Apply** link, and the job title as the link with details below it. When the paste has no title, the words in the job link become the title and the site's name stands in for the company until the job is evaluated.
+Three alert layouts are read: details above a **View & apply** / **Apply here** link (Naukri, Instahyre), a card whose company and star rating sit above the title (Naukri's "Jobs for you"), and the job title as the link with details below it. When the paste has no title, the words in the job link become the title and the site's name stands in for the company until the job is evaluated.
+
+Naukri TopTier "early access" roles name no single company ("hiring for one of these"). The importer does not guess one: the site's name stands in, and the evaluation treats an unnamed employer as a legitimacy signal.
 
 ## Before you apply
 

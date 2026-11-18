@@ -118,7 +118,7 @@ test('the import plan names the sites and skips jobs already listed', () => {
   assert.equal(plan.message, '5 jobs added (Naukri, Cutshort, Foundit, IIMJobs, Hirist). Open Pipeline to review them. 1 was already in your list.');
   const one = planIndiaImport(Object.values(LINKS).join('\n'), '', { sites: new Set(['foundit']) });
   assert.deepEqual(one.added.map((j) => j.site), ['foundit']);
-  assert.match(planIndiaImport('nothing here', '').message, /^No jobs from Naukri, Instahyre/);
+  assert.match(planIndiaImport('nothing here', '').message, /^No job links from Naukri, Instahyre/);
 });
 
 // Layout of a real Instahyre job alert (2026-11): every link wrapped in a
@@ -155,6 +155,42 @@ test('a real-layout Instahyre alert: path-wrapped tracker, details above "Apply 
   assert.equal(offer.title, 'Java Developer');
   assert.equal(offer.company, 'Northwind Systems');
   assert.equal(offer.location, 'Bangalore');
+});
+
+// Layout of a real Naukri "Jobs for you" alert (2026-11): company and star
+// rating in a card header, a blank line, then title, location, salary,
+// experience, and a "View & apply" link. Companies and ids are made up; a
+// browser copy drops the links, so they are added back as markdown.
+const naukriCard = (company, rating, title, place, pay, yrs, id) => [
+  '', company, `\t${rating}`, '', '', title, `\t\t${place}`, `\t\t${pay}`, `\t\t${yrs}`, '',
+  `[View & apply](https://www.naukri.com/job-listings-${title.toLowerCase().replace(/\W+/g, '-')}-${id}?src=jobsearchDesk)`, '',
+].join('\n');
+const NAUKRI_CARDS = [
+  'Hi ,',
+  "We've curated a list of jobs that match your profile & preferences, take a look",
+  naukriCard('Northwind Data', '3.6', 'Principal Software Engineer', 'Hybrid - Hyderabad, Bengaluru', '₹60L - ₹1Cr/year', '13-18 Yrs', '181125600001'),
+  naukriCard('Quill Bank', '3.6', 'Lead Software Engineer', 'Bengaluru', 'Not Disclosed', '10-15 Yrs', '181125600002'),
+  naukriCard('Zeta Freight', '3.4', 'Engineering Manager', 'Bengaluru', '₹40L - ₹1Cr/year', '6-11 Yrs', '181125600003'),
+].join('\n');
+
+test('a real-layout Naukri card alert: company above the title, rating skipped, ₹L-₹Cr salary', () => {
+  const offers = indiaOffers(indiaJobsFromText(NAUKRI_CARDS), NAUKRI_CARDS);
+  assert.deepEqual(offers.map((o) => [o.title, o.company, o.location]), [
+    ['Principal Software Engineer', 'Northwind Data', 'Hyderabad, Bengaluru, Hybrid'],
+    ['Lead Software Engineer', 'Quill Bank', 'Bengaluru'],
+    ['Engineering Manager', 'Zeta Freight', 'Bengaluru'],
+  ]);
+  assert.deepEqual(offers[0].salary, { min: 6_000_000, max: 10_000_000, currency: 'INR' });
+  assert.equal(offers[1].salary, undefined);
+  assert.deepEqual(offers[2].salary, { min: 4_000_000, max: 10_000_000, currency: 'INR' });
+  assert.deepEqual(offers.map((o) => o.years.label), ['13-18', '10-15', '6-11']);
+});
+
+test('a paste whose links were dropped says how to keep them', () => {
+  const plain = NAUKRI_CARDS.replace(/\]\([^)]*\)/g, ']').replace(/[[\]]/g, '');
+  const plan = planIndiaImport(plain, '');
+  assert.equal(plan.found, 0);
+  assert.match(plan.message, /drops its links\. Download the email instead/);
 });
 
 test('the account login token in an alert link is never saved', () => {

@@ -134,7 +134,7 @@ test('jobs already in the pipeline or tracker are skipped', () => {
   assert.deepEqual(plan.added.map((j) => j.id), [B]);
   assert.deepEqual(plan.already.map((j) => j.id), [A]);
   assert.equal(plan.message, '1 Naukri job added. Open Pipeline to review it. 1 was already in your list.');
-  assert.match(planNaukriImport('', '').message, /No Naukri jobs found/);
+  assert.match(planNaukriImport('', '').message, /No Naukri job links found/);
 });
 
 test('the CLI writes new jobs to the pipeline once', () => {

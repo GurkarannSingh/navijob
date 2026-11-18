@@ -4,10 +4,10 @@ Paste a Naukri job alert into CareerOps. The jobs land in your pipeline with sal
 
 ## Paste from the terminal
 
-Open a Naukri job alert email, select all, copy, and save it as a file. Then run:
+Copying an email from Gmail in the browser drops its links, so download it instead: open the alert, click **⋮** → **Download message**. Then run:
 
 ```bash
-node naukri-import.mjs --file alert.txt
+node naukri-import.mjs --file ~/Downloads/alert.eml
 ```
 
 Or pipe it:
@@ -28,6 +28,7 @@ A job that is already in the pipeline or the tracker is not added again.
 |------------|----------|
 | `12-18 Lacs PA`, `₹ 30-45 LPA` | `1200000-1800000 INR`, `3000000-4500000 INR` |
 | `1-1.5 Cr` | `10000000-15000000 INR` |
+| `₹60L - ₹1Cr/year` | `6000000-10000000 INR` |
 | `Not disclosed` | no salary |
 | `5-8 Yrs`, `3 to 5 years`, `Fresher` | `yrs: 5-8`, `yrs: 3-5`, `yrs: fresher` |
 | `Bengaluru, Hybrid`, `Work from home` | `Bengaluru, Hybrid`, `Remote` |

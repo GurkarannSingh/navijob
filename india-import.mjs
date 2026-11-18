@@ -5,6 +5,7 @@ import { dirname, join } from 'path';
 import { flagValue, hasFlag, validateFlags } from './lib/cli-flags.mjs';
 import { isMainModule } from './lib/is-main-module.mjs';
 import { indiaOffers, planIndiaImport, INDIA_SITES } from './lib/india-import.mjs';
+import { emailToText } from './lib/email-text.mjs';
 import { getCareerOpsRoot, resolveTrackerPath } from './path-resolver.mjs';
 
 const USAGE = `Paste a job alert from an Indian job site into your pipeline.
@@ -70,6 +71,9 @@ async function main() {
       process.exit(0);
     }
   }
+
+  // A saved .eml keeps its HTML part encoded; read it as text with its links.
+  text = emailToText(text);
 
   const root = getCareerOpsRoot();
   const pipelinePath = process.env.CAREER_OPS_PIPELINE?.trim() || join(root, 'data', 'pipeline.md');
