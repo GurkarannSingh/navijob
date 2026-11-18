@@ -13,7 +13,6 @@ test("Explore starts a scan on load only for the explicit run=1 hand-off", () =>
   assert.equal(shouldStartScanOnLoad("/explore", ""), false);
   assert.equal(shouldStartScanOnLoad("/explore", "?tab=inbox"), false);
   assert.equal(shouldStartScanOnLoad("/explore", "run=1"), true);
-  assert.equal(shouldStartScanOnLoad("/explore", "run=1&preset=china-employers"), false);
 });
 
 test("the Pipeline find-roles link does not ask Explore to scan on arrival", () => {

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Plus, ArrowUpDown, ChevronDown, Check, LayoutGrid, List } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { DiscoveredOffer } from "@/lib/explore";
-import { CHINA_SOURCES } from "@/lib/employer-preset.mjs";
 import {
   DEFAULT_SORT,
   FIT_BANDS,
@@ -36,7 +35,6 @@ const segmentOff = "text-muted hover:text-foreground";
 export function ResultsList({ offers }: { offers: EnrichedOffer[] }) {
   const { companiesScanned, partial, error, addToPipeline, added, mode, running } = useExplore();
   const isAi = mode === "ai";
-  const employer = offers.some(o => CHINA_SOURCES.includes(o.source));
   const [q, setQ] = useState("");
   const [sortSpec, setSortSpec] = useState<SortSpec[]>(() => [...DEFAULT_SORT]);
   const [hiddenBands, setHiddenBands] = useState<ReadonlySet<FitBand>>(() => new Set());
@@ -82,14 +80,14 @@ export function ResultsList({ offers }: { offers: EnrichedOffer[] }) {
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <p className="text-sm text-foreground">
-            <span className="font-semibold">{offers.length}</span> {isAi ? `candidate${offers.length === 1 ? "" : "s"}` : employer ? `match${offers.length === 1 ? "" : "es"}` : `fresh role${offers.length === 1 ? "" : "s"}`}
+            <span className="font-semibold">{offers.length}</span> {isAi ? `candidate${offers.length === 1 ? "" : "s"}` : `fresh role${offers.length === 1 ? "" : "s"}`}
             {view.length !== offers.length && <span className="text-faint"> · {view.length} shown</span>}
             <CostBadge kind={isAi ? "spend" : "free-network"} size="xs" className="ml-2 align-middle" />
           </p>
           <p className="text-[12px] text-faint">
             {isAi
               ? "found by AI on the open web · unverified until you evaluate"
-              : employer ? "From selected employer sites · check the original JD · 0 tokens spent" : `${companiesScanned > 0 ? `${companiesScanned.toLocaleString()} companies scanned · ` : ""}0 tokens spent${partial ? " · some boards were unreachable (normal for public directories)" : ""}`}
+              : `${companiesScanned > 0 ? `${companiesScanned.toLocaleString()} companies scanned · ` : ""}0 tokens spent${partial ? " · some boards were unreachable (normal for public directories)" : ""}`}
           </p>
           {!isAi && error && <p className="text-[12px] text-amber-800 dark:text-amber-300">{error}</p>}
         </div>

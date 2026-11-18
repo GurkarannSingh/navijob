@@ -11,13 +11,11 @@ import {
   parseExplorePatch,
   type AtsSource,
   type DiscoverySource,
-  type EmployerScanOutcome,
   type DiscoveredOffer,
   type ExploreFilters,
   type ExploreMode,
   type ScanEvent,
 } from "@/lib/explore";
-import { CHINA_PRESET, EMPLOYER_LABEL, employerRequest } from "@/lib/employer-preset.mjs";
 import { makeAiStreamParser, type AiTraceChunk } from "@/lib/explore-ai";
 import { MAX_OFFER_LIMIT } from "@/lib/whats-new.mjs";
 import { isAbortError, isScannerMissing } from "@/lib/explore-error.mjs";
@@ -63,7 +61,6 @@ type ExploreCtx = {
   capHit: boolean;
   droppedNoDate: number;
   status: string;
-  employerOutcome: EmployerScanOutcome | null;
   partial: boolean;
   error: string;
   /** The failure was the structured "scanner absent from this checkout" 400,
@@ -131,7 +128,6 @@ function writeSearchUrl(qs: string) {
 
 export function ExploreProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [employerOutcome, setEmployerOutcome] = useState<EmployerScanOutcome | null>(null);
   const [filters, setFiltersState] = useState<ExploreFilters>({ ...DEFAULT_FILTERS, ats: [...DEFAULT_FILTERS.ats] });
   const touched = useRef(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -175,15 +171,9 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
   const discover = useCallback(async () => {
     if (runningRef.current) return;
     const f = filtersRef.current;
-    if (f.preset === CHINA_PRESET && !f.employers?.length) return;
-    const employer = f.preset === CHINA_PRESET;
-    if (employer) {
-      try { sessionStorage.removeItem(RESULTS_KEY); } catch { /* unavailable */ }
-    }
     const run = runs.current.start();
     runningRef.current = true;
     setPhase("casting");
-    setEmployerOutcome(null);
     setOffers([]);
     setMatchCount(0);
     setCompaniesScanned(0);
@@ -195,7 +185,7 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
     setScannerMissing(false);
     setStatus("Casting the net across the ATS network…");
     const init: Partial<Record<DiscoverySource, SourceState>> = {};
-    for (const a of employer ? f.employers ?? [] : f.ats) init[a] = { state: "queued" };
+    for (const a of f.ats) init[a] = { state: "queued" };
     setSources(init);
     // Do not write the filter URL here. Next.js patches history.replaceState and
     // treats it as a navigation, which aborts this fetch — Discover flashed
@@ -208,7 +198,6 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
     let companiesScannedAcc = 0; // 0 at the end = the directories never downloaded → degraded, not empty
     let capHitAcc = false; // scan was capped (only a slice of the universe searched)
     let datasetIssueAcc = false; // some ATS dataset was stale/empty/unreachable
-    let employerResult: EmployerScanOutcome | null = null;
     let droppedNoDateAcc = 0; // postings dropped for lacking a publish date
     const handleEvent = (raw: object) => {
       if (!runs.current.owns(run)) return;
@@ -241,7 +230,6 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
           }
           break;
         case "summary": {
-          if (ev.employerOutcome) { employerResult = ev.employerOutcome; setEmployerOutcome(ev.employerOutcome); }
           companiesScannedAcc = ev.companiesScanned;
           setCompaniesScanned(ev.companiesScanned);
           if (typeof ev.companiesAvailable === "number") setCompaniesAvailable(ev.companiesAvailable);
@@ -271,7 +259,7 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
     try {
       // Next.js patches window.fetch and aborts it on any router/history update.
       // Discover died in ~100ms with a silent AbortError. XMLHttpRequest is not patched.
-      const { status, errorBody } = await postNdjsonXhr("/api/explore", employer ? employerRequest(f) : f, handleEvent);
+      const { status, errorBody } = await postNdjsonXhr("/api/explore", f, handleEvent);
       if (status >= 400) {
         sawScannerMissing = isScannerMissing(errorBody);
         const msg =
@@ -296,19 +284,6 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
     // a reload no longer replays an onboarding ?run=1).
     if (!runs.current.owns(run)) return;
     writeSearchUrl(filtersToParams(f));
-
-    if (employer) {
-      runningRef.current = false;
-      // A missing terminal summary is interruption, even with zero results.
-      const outcome: EmployerScanOutcome = employerResult ?? { state: acc.length ? "partial" : "failed", message: `Incomplete scan — ${(f.employers ?? []).map(id => EMPLOYER_LABEL[id]).join(", ")}: ${sawError || "source stream ended before completion"}.` };
-      setEmployerOutcome(outcome);
-      setStatus("");
-      setPartial(outcome.state !== "complete");
-      setMatchCount(acc.length);
-      setError("");
-      setPhase(acc.length ? "results" : outcome.state === "failed" ? "failed" : outcome.state === "partial" ? "degraded" : "empty-loose");
-      return;
-    }
 
     // Mark any still-active sources as swept (stream ended).
     setSources((s) => {
@@ -357,7 +332,6 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
     runningRef.current = true;
     setPhase("casting");
     setStatus("Loading fresh matches…");
-    setEmployerOutcome(null);
     setOffers([]);
     setMatchCount(0);
     setCompaniesScanned(0);
@@ -449,7 +423,6 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
     runs.current.invalidate();
     runningRef.current = false;
     setPhase("idle");
-    setEmployerOutcome(null);
     setOffers([]);
     setSources({});
     setMatchCount(0);
@@ -485,7 +458,6 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
     const run = runs.current.start();
     runningRef.current = true;
     setPhase("casting");
-    setEmployerOutcome(null);
     setOffers([]);
     setMatchCount(0);
     setAiTrace([]);
@@ -613,13 +585,7 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
       snap = null;
     }
     if (!snap || snap.v !== 1 || !Array.isArray(snap.offers)) return;
-    // Retire any employer snapshot created by the earlier implementation.
-    if ("employerOutcome" in snap && snap.employerOutcome) {
-      try { sessionStorage.removeItem(RESULTS_KEY); } catch { /* unavailable */ }
-      return;
-    }
     setModeState(snap.mode === "ai" ? "ai" : "scan");
-    setEmployerOutcome(null);
     setOffers(snap.offers);
     setMatchCount(typeof snap.matchCount === "number" ? snap.matchCount : snap.offers.length);
     setCompaniesScanned(snap.companiesScanned ?? 0);
@@ -644,12 +610,6 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const SETTLED = new Set<Phase>(["results", "empty-current", "empty-loose", "failed", "degraded", "blocked"]);
     if (!SETTLED.has(phase)) return;
-    // Employer coverage messages and results stay in memory. Do not serialize
-    // them into the legacy browser snapshot, or restore an older search instead.
-    if (employerOutcome) {
-      try { sessionStorage.removeItem(RESULTS_KEY); } catch { /* unavailable */ }
-      return;
-    }
     try {
       const snap: ResultSnapshot = {
         v: 1, mode, phase, offers, matchCount, companiesScanned, companiesAvailable, capHit, droppedNoDate, sources,
@@ -659,17 +619,17 @@ export function ExploreProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* sessionStorage full/unavailable — non-fatal */
     }
-  }, [phase, mode, offers, matchCount, companiesScanned, companiesAvailable, capHit, droppedNoDate, sources, partial, status, employerOutcome, error, scannerMissing, added, aiTrace, aiCost, aiIntent]);
+  }, [phase, mode, offers, matchCount, companiesScanned, companiesAvailable, capHit, droppedNoDate, sources, partial, status, error, scannerMissing, added, aiTrace, aiCost, aiIntent]);
 
   const value = useMemo(
     () => ({
       filters, setFilters, initFilters, phase,
       running: phase === "casting" || phase === "scanning" || phase === "revealing" || phase === "hunting",
-      offers, sources, matchCount, companiesScanned, companiesAvailable, capHit, droppedNoDate, status, employerOutcome, partial, error, scannerMissing, added, adding,
+      offers, sources, matchCount, companiesScanned, companiesAvailable, capHit, droppedNoDate, status, partial, error, scannerMissing, added, adding,
       discover, loadFresh, addToPipeline, applyPatch, reset,
       mode, setMode, aiIntent, setAiIntent, discoverAI, aiTrace, aiCost,
     }),
-    [filters, setFilters, initFilters, phase, offers, sources, matchCount, companiesScanned, companiesAvailable, capHit, droppedNoDate, status, employerOutcome, partial, error, scannerMissing, added, adding, discover, loadFresh, addToPipeline, applyPatch, reset, mode, setMode, aiIntent, discoverAI, aiTrace, aiCost],
+    [filters, setFilters, initFilters, phase, offers, sources, matchCount, companiesScanned, companiesAvailable, capHit, droppedNoDate, status, partial, error, scannerMissing, added, adding, discover, loadFresh, addToPipeline, applyPatch, reset, mode, setMode, aiIntent, discoverAI, aiTrace, aiCost],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
