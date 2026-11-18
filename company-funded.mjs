@@ -43,6 +43,23 @@ const RSS_SOURCES = {
   // Tech trade press that regularly carries funding announcements: a 1-month
   // dry run read 30 items, 8 funding-like, and produced 4 candidates.
   siliconangle: ['https://siliconangle.com/feed/'],
+  // Regional sources (Navijob), checked 2026-11-18. Opt-in through
+  // --sources or the india / uae / australia groups below.
+  inc42: ['https://inc42.com/buzz/feed/'],
+  entrackr: ['https://entrackr.com/rss'],
+  yourstory: ['https://yourstory.com/feed'],
+  wamda: ['https://www.wamda.com/feed'],
+  menabytes: ['https://www.menabytes.com/feed/'],
+  startupdaily: ['https://www.startupdaily.net/feed/'],
+  smartcompany: ['https://www.smartcompany.com.au/feed/'],
+};
+
+// Region groups for --sources: `--sources india,uae` expands to their feeds.
+export const SOURCE_GROUPS = {
+  india: ['inc42', 'entrackr', 'yourstory'],
+  uae: ['wamda', 'menabytes'],
+  mena: ['wamda', 'menabytes'],
+  australia: ['startupdaily', 'smartcompany'],
 };
 
 const SOURCE_HOSTS = {
@@ -50,6 +67,13 @@ const SOURCE_HOSTS = {
   prnewswire: ['prnewswire.com'],
   guardian: ['theguardian.com'],
   siliconangle: ['siliconangle.com'],
+  inc42: ['inc42.com'],
+  entrackr: ['entrackr.com'],
+  yourstory: ['yourstory.com'],
+  wamda: ['wamda.com'],
+  menabytes: ['menabytes.com'],
+  startupdaily: ['startupdaily.net'],
+  smartcompany: ['smartcompany.com.au'],
   hacker_news: ['hn.algolia.com', 'news.ycombinator.com'],
 };
 
@@ -58,6 +82,13 @@ const SOURCE_RANK = {
   prnewswire: 65,
   guardian: 50,
   siliconangle: 45,
+  inc42: 55,
+  entrackr: 55,
+  menabytes: 55,
+  startupdaily: 55,
+  yourstory: 45,
+  wamda: 45,
+  smartcompany: 40,
   hacker_news: 35,
   web: 5,
 };
@@ -101,7 +132,10 @@ Options:
   --months <n>            Recent-funding window. Default: 3.
   --sort <date|score>     Candidate ordering. Default: date.
   --sources <csv>         Sources. Default: techcrunch,prnewswire,guardian,hn.
-                          Also available: siliconangle.
+                          Also available: siliconangle; regional feeds
+                          inc42, entrackr, yourstory (India), wamda,
+                          menabytes (UAE/MENA), startupdaily, smartcompany
+                          (Australia); or the groups india, uae, australia.
   --dry-run               Print only; do not write report/JSON files.
   --json                  Print machine-readable JSON.
   --self-test             Run offline self-test.
@@ -144,13 +178,14 @@ function parseSort(value) {
   return s;
 }
 
-function parseSources(value) {
+export function parseSources(value) {
   const out = String(value || '')
     .split(',')
     .map((s) => normalizeSourceName(s.trim()))
-    .filter(Boolean);
+    .filter(Boolean)
+    .flatMap((s) => SOURCE_GROUPS[s] || [s]);
   const unique = [...new Set(out)];
-  const allowed = new Set(['techcrunch', 'prnewswire', 'guardian', 'siliconangle', 'hn']);
+  const allowed = new Set(['techcrunch', 'prnewswire', 'guardian', 'siliconangle', 'hn', ...Object.keys(RSS_SOURCES)]);
   for (const source of unique) {
     if (!allowed.has(source)) throw new Error(`unknown source in --sources: ${source}`);
   }
@@ -340,6 +375,14 @@ function cleanCompanyName(raw) {
     .replace(/\s*,.*$/g, '')
     .trim();
 
+  // Regional press puts the place first: "Dubai's WheelsOn", "Bengaluru-based Olyv".
+  s = s.replace(/^(?:Saudi|Saudi Arabia|UAE|Dubai|Abu Dhabi|Sharjah|Egypt|Qatar|Kuwait|Bahrain|Oman|Jordan|Morocco|Pakistan|India|Bengaluru|Bangalore|Mumbai|Delhi|Gurugram|Gurgaon|Noida|Pune|Hyderabad|Chennai|Australia|Sydney|Melbourne|Brisbane|Perth|Adelaide)['’]s\s+/i, '');
+  s = s.replace(/^[A-Z][A-Za-z]+(?:\s[A-Z][A-Za-z]+)?-based\s+/, '');
+  s = s.replace(/\s+(?:co-?)?founders?$/i, '');
+  s = s.replace(/^(?:exclusive|breaking|funding)\s*[:|]\s*/i, '');
+  // "Expat's remote surgery medtech": a possessive followed by a lowercase
+  // description names the founder or owner, not the company.
+  if (/['’]s\s+[a-z]/.test(s)) return '';
   const afterStartup = s.match(/\bstartup\s+(.+)$/i);
   if (afterStartup?.[1]) s = afterStartup[1].trim();
   if (/\bstartup$/i.test(s) && /['’]s\b/i.test(s)) return '';
@@ -368,15 +411,15 @@ export function extractCompanyFromFundingTitle(title) {
   if (/^(ask hn|tell hn|who is hiring|launch hn)\b/i.test(t)) return '';
 
   const patterns = [
-    /\b(?:raises?|raised|lands|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged)\s+(?:an?\s+|over\s+|more\s+than\s+|up\s+to\s+)?\$[\d.,]+\s*(?:billion|million|bn|[bkmt])?\s+for\s+(?:an?\s+)?(?:ai\s+)?startup\s+(.+?)$/i,
-    /\bstartup\s+(.+?)\s+(?:reportedly\s+)?(?:raises?|raised|lands|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged)\b/i,
+    /\b(?:raises?|raised|lands|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged|scores?|scored|pockets?|pocketed)\s+(?:an?\s+|over\s+|more\s+than\s+|up\s+to\s+)?(?<![a-z])(?:\$|US\$|A\$|AU\$|₹|Rs\.?\s?|INR\s?|AED\s?|USD\s?)\d[\d.,]*\s*(?:billion|million|crores?|cr|mn|bn|[bkmt])?\s+for\s+(?:an?\s+)?(?:ai\s+)?startup\s+(.+?)$/i,
+    /\bstartup\s+(.+?)\s+(?:reportedly\s+)?(?:raises?|raised|lands|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged|scores?|scored|pockets?|pocketed)\b/i,
     /(?:startup|company|agency|platform)\s+(.+?)\s+hits\s+unicorn\s+status\b.*\braises?\b/i,
-    /^(.+?)\s+(?:raises?|raised|lands|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged)\s+(?:an?\s+|over\s+|more\s+than\s+|up\s+to\s+)?\$[\d.,]+\s*(?:billion|million|bn|[bkmt])?\b/i,
-    /^(.+?)\s+(?:raises?|raised|lands|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged)\s+(?:an?\s+)?(?:\w+\s+){0,4}(?:funding|round|series\s+[a-h]|seed|pre-seed|investment|financing|valuation)\b/i,
-    /^(.+?)\s+(?:announces?|announced)\s+(?:\$[\d.,]+\s*(?:billion|million|bn|[bkmt])?\s+)?(?:\w+\s+){0,4}(?:funding|round|series\s+[a-h]|seed|pre-seed|financing)\b/i,
-    /^(.+?)\s+(?:gets|got|receives?|received)\s+(?:\$[\d.,]+\s*(?:billion|million|bn|[bkmt])?\s+)?(?:in\s+)?(?:funding|investment|financing)\b/i,
-    /^(.+?)\s+(?:hits?|hit|reaches?|reached)\s+(?:a\s+)?\$[\d.,]+(?:\.\d+)?\s*(?:billion|million|bn|[bkmt])?\s+valuation\b/i,
-    /^(.+?)\s+valued\s+at\s+\$[\d.,]+(?:\.\d+)?\s*(?:billion|million|bn|[bkmt])?\b/i,
+    /^(.+?)\s+(?:raises?|raised|lands|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged|scores?|scored|pockets?|pocketed)\s+(?:an?\s+|over\s+|more\s+than\s+|up\s+to\s+)?(?<![a-z])(?:\$|US\$|A\$|AU\$|₹|Rs\.?\s?|INR\s?|AED\s?|USD\s?)\d[\d.,]*\s*(?:billion|million|crores?|cr|mn|bn|[bkmt])?\b/i,
+    /^(.+?)\s+(?:raises?|raised|lands|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged|scores?|scored|pockets?|pocketed)\s+(?:an?\s+)?(?:\w+\s+){0,4}(?:funding|round|series\s+[a-h]|seed|pre-seed|investment|financing|valuation)\b/i,
+    /^(.+?)\s+(?:announces?|announced)\s+(?:(?<![a-z])(?:\$|US\$|A\$|AU\$|₹|Rs\.?\s?|INR\s?|AED\s?|USD\s?)\d[\d.,]*\s*(?:billion|million|crores?|cr|mn|bn|[bkmt])?\s+)?(?:\w+\s+){0,4}(?:funding|round|series\s+[a-h]|seed|pre-seed|financing)\b/i,
+    /^(.+?)\s+(?:gets|got|receives?|received)\s+(?:(?<![a-z])(?:\$|US\$|A\$|AU\$|₹|Rs\.?\s?|INR\s?|AED\s?|USD\s?)\d[\d.,]*\s*(?:billion|million|crores?|cr|mn|bn|[bkmt])?\s+)?(?:in\s+)?(?:funding|investment|financing)\b/i,
+    /^(.+?)\s+(?:hits?|hit|reaches?|reached)\s+(?:a\s+)?(?<![a-z])(?:\$|US\$|A\$|AU\$|₹|Rs\.?\s?|INR\s?|AED\s?|USD\s?)\d[\d.,]*(?:\.\d+)?\s*(?:billion|million|crores?|cr|mn|bn|[bkmt])?\s+valuation\b/i,
+    /^(.+?)\s+valued\s+at\s+(?<![a-z])(?:\$|US\$|A\$|AU\$|₹|Rs\.?\s?|INR\s?|AED\s?|USD\s?)\d[\d.,]*(?:\.\d+)?\s*(?:billion|million|crores?|cr|mn|bn|[bkmt])?\b/i,
     /^(.+?)\s+emerges? from stealth\b/i,
     /^(.+?)\s+in\s+talks\s+to\s+raise\b/i,
   ];
@@ -390,7 +433,7 @@ export function extractCompanyFromFundingTitle(title) {
 
 export function extractFundingDetails(text) {
   const raw = xmlText(text);
-  const amount = raw.match(/\$[\d,.]+(?:\.\d+)?\s*(?:billion|million|bn|m|b|k)?/i)?.[0] || '';
+  const amount = raw.match(/(?<![a-z])(?:\$|US\$|A\$|AU\$|₹|Rs\.?\s?|INR\s?|AED\s?|USD\s?)\d[\d,.]*(?:\.\d+)?\s*(?:billion|million|crores?|cr|mn|bn|m|b|k)?(?![a-z])/i)?.[0] || '';
   const round = raw.match(/\b(?:pre-seed|seed|series\s+[a-h]|strategic|venture|growth)\b/i)?.[0] || '';
   return {
     amount: compact(amount),
@@ -583,7 +626,7 @@ export function parseRssItems(xml, { source = 'web' } = {}) {
 }
 
 function hasFundingLanguage(text) {
-  return /\b(funding|funded|raises?|raised|raise|series\s+[a-h]|seed\s+round|pre-seed|venture\s+round|investment|financing|valuation|valued\s+at|lands?|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged|emerges?\s+from\s+stealth|in\s+talks\s+to\s+raise)\b/i.test(text);
+  return /\b(funding|funded|raises?|raised|raise|series\s+[a-h]|seed\s+round|pre-seed|venture\s+round|investment|financing|valuation|valued\s+at|lands?|landed|secures?|secured|closes?|closed|nabs?|nabbed|bags?|bagged|scores?|scored|pockets?|pocketed|emerges?\s+from\s+stealth|in\s+talks\s+to\s+raise)\b/i.test(text);
 }
 
 function isExcludedFundingItem(item) {
@@ -618,6 +661,9 @@ function isExcludedFundingItem(item) {
     /\b(public offering|registered direct offering|private placement|atm offering|offering of common stock)\b/i,
     /\braises?\s+\$[\d,.]+(?:\.\d+)?\s*(?:billion|million|bn|m|b|k)?\s+fund\b/i,
     /\b(venture fund|vc fund|investment fund|private equity fund|capital fund|fund ii|fund iii|fund iv|new fund)\b/i,
+    // A fund's own close ("raises Rs 192 Cr in first close of … fund") is an
+    // investor raising money, not a company that will hire.
+    /\b(first|final|second)\s+close\b/i,
     /\b(grant|grants|scholarship|scholarships|award|awards|donation|donates?)\b/i,
     /\b(how to raise|ways to raise|guide to fundraising|startup valuations|bubble fears)\b/i,
   ];
@@ -830,7 +876,7 @@ async function fetchHnDiscovery({ months = DEFAULT_MONTHS, now = new Date(), dia
 async function collectDiscoveryItems(opts, diagnostics) {
   const requested = new Set(opts.sources || DEFAULT_SOURCES);
   const hits = [];
-  for (const source of ['techcrunch', 'prnewswire', 'guardian', 'siliconangle']) {
+  for (const source of Object.keys(RSS_SOURCES)) {
     if (requested.has(source)) hits.push(...await fetchRssDiscovery(source, diagnostics));
   }
   if (requested.has('hn')) {
