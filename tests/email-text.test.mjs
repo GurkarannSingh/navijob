@@ -74,6 +74,21 @@ test('a quoted-printable HTML email is read like a pasted alert', () => {
   expectNaukriCards(emailToText(eml('quoted-printable', quotedPrintable(HTML))));
 });
 
+// Real Naukri alert links (2026-11): dl.naukri.com/?data=…&redirect=<encoded
+// www.naukri.com/aurus/job-{8 letters}-{12-digit id}?aurusRequest=true&…>.
+// The letters look per-recipient; values here are made up.
+test('a Naukri aurus deep link behind dl.naukri.com keeps only the job id', () => {
+  const target = 'https://www.naukri.com/aurus/job-qwErtyUi-271026900001?src=aurusJobRecurringMailer&aurusRequest=true&utm_source=mail';
+  const link = `https://dl.naukri.com/?data=FAKEdataFAKEdata&redirect=${encodeURIComponent(target)}`;
+  const text = `Northwind Data\n3.6\nPrincipal Software Engineer\nBengaluru\n₹60L - ₹1Cr/year\n13-18 Yrs\nView & apply ${link}`;
+  const jobs = indiaJobsFromText(text);
+  assert.deepEqual(jobs, [{ site: 'naukri', id: '271026900001', url: 'https://www.naukri.com/job-listings-271026900001' }]);
+  const [offer] = indiaOffers(jobs, text);
+  assert.equal(offer.company, 'Northwind Data');
+  assert.equal(offer.title, 'Principal Software Engineer');
+  assert.ok(!JSON.stringify(offer).includes('qwErtyUi'), 'the per-recipient code is not kept');
+});
+
 test('text that is not an email comes back unchanged', () => {
   const pasted = 'Java Developer\nhttps://www.instahyre.com/job-1-x/';
   assert.equal(emailToText(pasted), pasted);
